@@ -2,6 +2,8 @@
 
 
 
+
+
 USE master;  
 GO  
 EXEC sp_configure 'show advanced option', '1';  
@@ -31,11 +33,7 @@ GO
 
 with cte as  (
 select ID,service_Name AS FULL_NAME,trim(left(service_Name,7)) as State,  TRIM(SUBSTRING(     trim(SUBSTRING(service_Name,8,500)) , 1,  CHARINDEX(' ', trim(SUBSTRING(service_Name,8,500)),-1)))  as Service_Name2
- 
-
-	, TRIM(SUBSTRING(  trim(SUBSTRING(service_Name,8,500))  ,  CHARINDEX(' ', '"'+trim(SUBSTRING(service_Name,8,500)+'"'),-1),500)) AS DisplayName
-
-
+ , TRIM(SUBSTRING(  trim(SUBSTRING(service_Name,8,500))  ,  CHARINDEX(' ', '"'+trim(SUBSTRING(service_Name,8,500)+'"'),-1),500)) AS DisplayName
 from #info) 
 
 INSERT INTO #CurrentStateOfCriticallServicesMustRun
@@ -65,9 +63,11 @@ SELECT MR.State AS NormalCondition,MR.ServiceName,MR.DisplayName, CS.State AS Cu
 
 
 GO
-
-
-																			-- SENDS MAIL FOR STOPPED CRTICAL SERVICES, IN HTML FORMAT. MUST DEFINE EMAIL ACCOUNT, PROFILE 
+															  
+  
+  -- SENDS MAIL FOR STOPPED CRTICAL SERVICES, IN HTML FORMAT. MUST DEFINE EMAIL ACCOUNT, PROFILE 
+  
+  
   DECLARE @xml NVARCHAR(MAX)
   DECLARE @body NVARCHAR(MAX)
 
@@ -97,7 +97,10 @@ GO
 
 
 	/* OPTIONAL */
+  
+  
 	/* START STOPPED SERVICES IN XP_CMDSHELL */
+  
 																													
 	 DECLARE @ServiceName VARCHAR(512)													
 	 DECLARE @lcSQL NVARCHAR(2048);
