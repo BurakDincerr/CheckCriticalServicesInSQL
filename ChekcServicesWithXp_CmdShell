@@ -1,0 +1,131 @@
+/* Burak DINCER  /  4/9/2023   Checks critical defined Services that must RUN.      */
+
+
+
+USE master;  
+GO  
+EXEC sp_configure 'show advanced option', '1';  
+RECONFIGURE WITH OVERRIDE;   
+ EXEC sp_configure 'xp_cmdshell', 1;  
+GO  
+RECONFIGURE;
+
+
+
+DROP TABLE IF EXISTS #info
+create table #info(ID int IDENTITY(1,1),service_Name varchar(8000))
+insert into #info
+EXEC xp_cmdshell 'powershell.exe -noprofile -command "get-service | select Status,name,DisplayName   | format-table -auto"' 
+
+GO
+
+DROP TABLE IF EXISTS #CurrentStateOfCriticallServicesMustRun
+CREATE TABLE #CurrentStateOfCriticallServicesMustRun(
+ID int IDENTITY(1,1),
+State VARCHAR(10),
+ServiceName NVARCHAR(1024),
+DisplayName NVARCHAR(2048)
+)
+
+GO
+
+with cte as  (
+select ID,service_Name AS FULL_NAME,trim(left(service_Name,7)) as State,  TRIM(SUBSTRING(     trim(SUBSTRING(service_Name,8,500)) , 1,  CHARINDEX(' ', trim(SUBSTRING(service_Name,8,500)),-1)))  as Service_Name2
+ 
+
+	, TRIM(SUBSTRING(  trim(SUBSTRING(service_Name,8,500))  ,  CHARINDEX(' ', '"'+trim(SUBSTRING(service_Name,8,500)+'"'),-1),500)) AS DisplayName
+
+
+from #info) 
+
+INSERT INTO #CurrentStateOfCriticallServicesMustRun
+select cte.state,cte.Service_Name2,cte.DisplayName from cte
+where cte.State IN ('Stopped','Running')
+
+
+
+
+CREATE TABLE CriticalMustRunServices(
+ID int IDENTITY(1,1),
+State VARCHAR(10),
+ServiceName NVARCHAR(1024),
+DisplayName NVARCHAR(2048)
+)
+
+
+
+GO
+
+
+SELECT MR.State AS NormalCondition,MR.ServiceName,MR.DisplayName, CS.State AS CurrentState   -- REPORT OF STOPPED CRITICAL SERVICES
+	FROM CriticalMustRunServices MR 
+		INNER JOIN #CurrentStateOfCriticallServicesMustRun
+			CS ON MR.ServiceName = CS.ServiceName AND CS.State != MR.State
+
+
+
+GO
+
+
+																			-- SENDS MAIL FOR STOPPED CRTICAL SERVICES, IN HTML FORMAT. MUST DEFINE EMAIL ACCOUNT, PROFILE 
+  DECLARE @xml NVARCHAR(MAX)
+  DECLARE @body NVARCHAR(MAX)
+
+  SET @xml = CAST(( SELECT  MR.State AS 'td','',MR.ServiceName AS 'td','',MR.DisplayName AS 'td','',CS.State AS 'td'
+ FROM CriticalMustRunServices MR 
+		INNER JOIN #CurrentStateOfCriticallServicesMustRun
+			CS ON MR.ServiceName = CS.ServiceName AND CS.State != MR.State
+  FOR XML PATH('tr'), ELEMENTS ) AS NVARCHAR(MAX))
+
+  SET @body ='<html><body><H3>Critical Services that status changed to From Running to stopped </H3>
+  <table border = 1> 
+  <tr>
+  <th> NormalCondition </th>  <th> ServiceName </th> <th> DisplayName </th> <th> CurrentState</th>  </tr>'    
+
+  SET @body = @body + @xml +'</table></body></html>'
+
+  EXEC msdb.dbo.sp_send_dbmail
+  @profile_name = ' ', -- replace with your SQL Database Mail Profile 
+  @body = @body,
+  @body_format ='HTML',
+  @recipients = '  @outlook.com', -- replace with your email address
+  @subject = 'Stopped Critical Services Detected' ;
+
+
+
+
+
+
+	/* OPTIONAL */
+	/* START STOPPED SERVICES IN XP_CMDSHELL */
+																													
+	 DECLARE @ServiceName VARCHAR(512)													
+	 DECLARE @lcSQL NVARCHAR(2048);
+     DECLARE curGetStoppedCriticalServices CURSOR FAST_FORWARD FOR						-- 		Loop through every stopped critical services in table and get name
+      
+		SELECT '"'+MR.ServiceName+'"'
+			FROM CriticalMustRunServices MR 
+				INNER JOIN #CurrentStateOfCriticallServicesMustRun
+					CS ON MR.ServiceName = CS.ServiceName AND CS.State != MR.State
+ 
+			
+ 
+    OPEN curGetStoppedCriticalServices
+ 
+    FETCH NEXT FROM curGetStoppedCriticalServices INTO @ServiceName
+
+  
+    WHILE @@FETCH_STATUS = 0
+        BEGIN
+            
+			SET @lcSQL = 'NET START '+@ServiceName+''			-- Start every stopped critical services in table 
+			EXEC xp_cmdshell @lcSQL								-- In order to start from xp-cmdshell,  can require sql service account added to administrator group in Windows.
+
+					
+            FETCH NEXT
+            FROM curGetStoppedCriticalServices
+            INTO @ServiceName
+        END
+    CLOSE curGetStoppedCriticalServices;
+    DEALLOCATE curGetStoppedCriticalServices;
+
