@@ -122,8 +122,9 @@ GO
     WHILE @@FETCH_STATUS = 0
         BEGIN
             
-			SET @lcSQL = 'NET START '+@ServiceName+''	-- Start every stopped critical services in table 
-			EXEC xp_cmdshell @lcSQL				-- In order to start from xp-cmdshell,  can require sql service account added to administrator group in Windows.
+			SET @lcSQL = 'NET START '+@ServiceName+''  -- Start every stopped critical services in table 
+			EXEC xp_cmdshell @lcSQL			-- In order to start from xp-cmdshell,  
+									--can require sql service account added to administrator group in Windows.
 
 					
             FETCH NEXT
