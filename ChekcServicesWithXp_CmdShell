@@ -32,8 +32,9 @@ DisplayName NVARCHAR(2048)
 GO
 
 with cte as  (
-select ID,service_Name AS FULL_NAME,trim(left(service_Name,7)) as State,  TRIM(SUBSTRING(     trim(SUBSTRING(service_Name,8,500)) , 1,  CHARINDEX(' ', trim(SUBSTRING(service_Name,8,500)),-1)))  as Service_Name2
- , TRIM(SUBSTRING(  trim(SUBSTRING(service_Name,8,500))  ,  CHARINDEX(' ', '"'+trim(SUBSTRING(service_Name,8,500)+'"'),-1),500)) AS DisplayName
+select ID,service_Name AS FULL_NAME,trim(left(service_Name,7)) as State, 
+TRIM(SUBSTRING(     trim(SUBSTRING(service_Name,8,500)) , 1,  CHARINDEX(' ', trim(SUBSTRING(service_Name,8,500)),-1)))  as Service_Name2
+,TRIM(SUBSTRING(  trim(SUBSTRING(service_Name,8,500))  ,  CHARINDEX(' ', '"'+trim(SUBSTRING(service_Name,8,500)+'"'),-1),500)) AS DisplayName
 from #info) 
 
 INSERT INTO #CurrentStateOfCriticallServicesMustRun
@@ -104,7 +105,7 @@ GO
 																													
 	 DECLARE @ServiceName VARCHAR(512)													
 	 DECLARE @lcSQL NVARCHAR(2048);
-     DECLARE curGetStoppedCriticalServices CURSOR FAST_FORWARD FOR						-- 		Loop through every stopped critical services in table and get name
+         DECLARE curGetStoppedCriticalServices CURSOR FAST_FORWARD FOR		-- Loop through every stopped critical services in table and get name
       
 		SELECT '"'+MR.ServiceName+'"'
 			FROM CriticalMustRunServices MR 
@@ -121,8 +122,8 @@ GO
     WHILE @@FETCH_STATUS = 0
         BEGIN
             
-			SET @lcSQL = 'NET START '+@ServiceName+''			-- Start every stopped critical services in table 
-			EXEC xp_cmdshell @lcSQL								-- In order to start from xp-cmdshell,  can require sql service account added to administrator group in Windows.
+			SET @lcSQL = 'NET START '+@ServiceName+''	-- Start every stopped critical services in table 
+			EXEC xp_cmdshell @lcSQL				-- In order to start from xp-cmdshell,  can require sql service account added to administrator group in Windows.
 
 					
             FETCH NEXT
